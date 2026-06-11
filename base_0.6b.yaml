@@ -1,0 +1,59 @@
+# LaDA-Band-style Vocal-to-Accompaniment NAR model on the Muse qwen3-0.6B-music backbone.
+# Hyper-parameters follow arXiv:2604.11052 Sec. 5.2 (Stage-1 short-form training),
+# adapted from the 1B LLaMA backbone to the 0.6B Qwen3 backbone.
+
+model:
+  # Path to the Muse base model (download: huggingface-cli download bolshyC/qwen3-0.6B-music).
+  # Set to null to train the backbone from scratch.
+  pretrained_backbone: ./qwen3-0.6B-music
+  # Backbone dims (used only when pretrained_backbone is null; otherwise read from the checkpoint).
+  hidden_size: 1024
+  num_hidden_layers: 28
+  num_attention_heads: 16
+  num_key_value_heads: 8
+  head_dim: 128
+  intermediate_size: 3072
+  rms_norm_eps: 1.0e-6
+  rope_theta: 1000000.0
+  max_position_embeddings: 40960
+
+  track_embed_dim: 1024            # == hidden_size enables warm-start from <AUDIO_*>
+  warm_start_audio_embeddings: true
+  audio_token_template: "<AUDIO_{}>"
+  attn_implementation: sdpa
+
+  use_rtd: true                    # auxiliary replaced-token detection (Eq. 4)
+  rtd_weight: 0.2                  # lambda in Eq. (5)
+
+  use_condition_prefix: false      # vocal-only zero-shot V2A (no text/ref-audio condition)
+  cond_dim: 768
+  cond_dropout_prob: 0.5
+
+data:
+  format: messages                 # "messages" (chat JSONL) | "pt" (paired .pt manifest)
+  train_manifest: data/train.jsonl # your Muse-style jsonl: user=[VOCAL_SOA]..[VOCAL_EOA], assistant=[SOA]..[EOA]
+  val_manifest: data/val.jsonl
+  max_frames: 1024                 # 25 Hz * 40.96 s  (Stage 1). Use 4096 for Stage-2 long-form.
+  min_frames: 16
+  max_len_mismatch: 4
+  num_workers: 8
+
+train:
+  output_dir: runs/lada_band_0.6b
+  per_device_batch_size: 2
+  gradient_accumulation_steps: 4
+  learning_rate: 1.0e-5
+  weight_decay: 0.01
+  adam_epsilon: 1.0e-8
+  max_grad_norm: 1.0
+  warmup_steps: 10000
+  max_steps: 150000
+  lr_scheduler: cosine
+  min_lr_ratio: 0.1
+  bf16: true
+  seed: 42
+  log_every: 20
+  save_every: 2000
+  eval_every: 2000
+  save_total_limit: 10
+  resume_from: null

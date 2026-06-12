@@ -233,3 +233,12 @@ python scripts/smoke_test.py
   year={2026}
 }
 ```
+import json, random, torch
+from lada_band.data import messages_to_pair
+lines = [json.loads(l) for l in open("你的train.jsonl")]
+random.shuffle(lines)
+for rec in lines[:20]:
+    v, a = messages_to_pair(rec["messages"])
+    n = min(len(v), len(a))
+    eq = (v[:n] == a[:n]).float().mean().item()          # 逐帧相同比例
+    print(f"len v={len(v)} a={len(a)} | frame-equal={eq:.3f} | v[:8]={v[:8].tolist()} a[:8]={a[:8].tolist()}")
